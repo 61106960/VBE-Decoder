@@ -1,35 +1,75 @@
 # VBE-Decoder
 
-This Powershell script decodes an encoded 'VBE' string.
-It is based on the original Microsoft VB script https://gallery.technet.microsoft.com/Encode-and-Decode-a-VB-a480d74c
-and the Python code of Didier Stevens https://github.com/DidierStevens/DidierStevensSuite/blob/master/decode-vbe.py
+A PowerShell function to decode VBScript Encoded (.vbe) files.
 
-# How To Use
+VBScript.Encode (`screnc.exe`) creates "encoded" scripts that are obfuscated but NOT encrypted. This tool reverses the encoding using the known character substitution table.
 
-```sh
-Import-Module .\VBE-Decoder.ps1
-Get-DecodedVBE -EncodedData "#@~^C2oAAA==v,sr^+,1ls+=~Hbo.lDkGUxW4k \(/@#@&v~.DkkGxl~ZRX@#@&vPzEO4KD)~PU&3@#@&v,ZGs:==^#~@"
+## Quick Start
 
-' File Name: MigrationJobs.vbs
-' Version: 0.5
-' Author: TS3E
-```
-
-```sh
+```powershell
+# Load the function
 . .\VBE-Decoder.ps1
-Get-Content .\EncodedVBSFile.vbe | Get-DecodedVBE
 
-'--- set DHCPClassID and delete previous Migration files ---
-'--- must run in source domain before actual migration takes place ---
+# Decode a .vbe file
+ConvertFrom-VBE -Path "script.vbe"
 
-Option Explicit
-
-Dim strCommand, objShell, objStdOut, objFS, ObjWshScriPTExec, stroutpUt, strExecutable, strScRiptname, strScriptPath
-Set objfS = CreatEObjeCt("Scripting.FilesystemObject")
-strScriptname = WScript.ScRiptFullName
-StrScriPtPath = OBjFS.GetPaRentfolderName(sTrscRiptnAme)
-strExecutable = strScriptPath & "\psexec.exe"
-'!!! replace service account name !!!
-'!!! replace DHCPClassID - ClassID must be the one for the source domain !!!
-[strip]
+# Decode and save to file
+ConvertFrom-VBE -Path "encoded.vbe" | Set-Content "decoded.vbs"
 ```
+
+## Usage
+
+### Decode from file
+
+```powershell
+ConvertFrom-VBE -Path "C:\Scripts\logon.vbe"
+```
+
+### Decode from string
+
+```powershell
+ConvertFrom-VBE -EncodedScript '#@~^DgAAAA==\ko$K6,JCV^GJqAQAAA==^#~@'
+```
+
+### Decode from pipeline
+
+```powershell
+Get-Content "script.vbe" -Raw | ConvertFrom-VBE
+```
+
+### Batch decode all .vbe files in a directory
+
+```powershell
+Get-ChildItem "C:\Scripts" -Filter "*.vbe" | ForEach-Object {
+    $decoded = ConvertFrom-VBE -Path $_.FullName
+    $decoded | Set-Content ($_.FullName -replace '\.vbe$', '.vbs')
+}
+```
+
+## How VBE Encoding Works
+
+VBE uses a character substitution cipher with a rotating combination table:
+
+1. The encoded data is wrapped in markers: `#@~^XXXXXX==<data>YYYYYY==^#~@`
+2. Special escape sequences handle characters like `<`, `>`, `@`, and newlines
+3. Each printable character is mapped through a 128-entry substitution table
+4. A 64-entry combination table determines which of 3 possible decodings to use, cycling through positions
+
+The encoding is trivially reversible — it provides obfuscation, not security.
+
+## Requirements
+
+- PowerShell 5.1+ (Windows PowerShell)
+- No external dependencies
+
+## Also Included In
+
+This decoder is also integrated into [adPEAS v2](https://github.com/61106960/adPEAS), where it is used to automatically decode VBE-encoded logon scripts during credential exposure analysis.
+
+## References
+
+- [Didier Stevens - decode-vbe.py](https://blog.didierstevens.com/2016/03/29/decoding-vbe/)
+
+## Author
+
+**Alexander Sturz** — [SEKurity GmbH](https://sekurity.de)
